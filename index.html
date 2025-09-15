@@ -2,45 +2,105 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Location Check-in</title>
+  <title>English Class Check-In</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <style>
-    body { font-family: Arial, sans-serif; margin: 40px; }
-    #checkinForm { margin-top: 20px; }
-    label { display: block; margin-top: 10px; }
-    input, select, button { padding: 8px; margin-top: 5px; width: 200px; }
-    button { background: #4CAF50; color: white; border: none; cursor: pointer; }
-    button:hover { background: #45a049; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f5f6fa;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .container {
+      background: white;
+      padding: 25px;
+      border-radius: 15px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      max-width: 380px;
+      width: 90%;
+      text-align: center;
+    }
+    h2 {
+      margin-bottom: 10px;
+      color: #2c3e50;
+    }
+    p {
+      color: #7f8c8d;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      text-align: left;
+      margin: 10px 0 5px;
+      font-weight: 500;
+    }
+    input, select, button {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      font-size: 16px;
+    }
+    button {
+      background: #0066cc;
+      color: white;
+      border: none;
+      font-weight: bold;
+      transition: 0.3s;
+    }
+    button:hover {
+      background: #004c99;
+    }
+    #status {
+      margin-bottom: 15px;
+      font-weight: bold;
+      color: #c0392b;
+    }
+    .success {
+      color: #27ae60 !important;
+    }
   </style>
 </head>
 <body>
-  <h2>Check-In</h2>
-  <div id="status">Checking location...</div>
+  <div class="container">
+    <h2>English Class</h2>
+    <p>Al-Nahrain University</p>
 
-  <form id="checkinForm" style="display:none;">
-    <label>Name:</label>
-    <input type="text" id="name" required>
+    <div id="status">Checking location...</div>
 
-    <label>Department:</label>
-    <select id="department">
-      <option value="HR">HR</option>
-      <option value="Finance">Finance</option>
-      <option value="IT">IT</option>
-      <option value="Sales">Sales</option>
-    </select>
+    <form id="checkinForm" style="display:none;">
+      <label for="name">Full Name</label>
+      <input type="text" id="name" placeholder="Enter your name" required>
 
-    <button type="submit">Submit</button>
-  </form>
+      <label for="department">Department</label>
+      <select id="department" required>
+        <option value="">-- Select Department --</option>
+        <option value="English">English</option>
+        <option value="Linguistics">Linguistics</option>
+        <option value="Translation">Translation</option>
+      </select>
+
+      <button type="submit">Check In</button>
+    </form>
+  </div>
 
   <script>
     // 🔹 Change these values
-    const allowedLat = 33.21983466656297;  // Example: Baghdad
+    const allowedLat = 33.21983466656297;  // Replace with Al-Nahrain University GPS
     const allowedLng = 44.380812176540296;
-    const radius = 500; // meters allowed radius
-    const backendUrl = "https://script.google.com/macros/s/AKfycbxtoO_VaYkgoMWthodPEcP5zQXjP6-NBKdb-OrCl0jQQXNqSGFDx6MUHQX09TfJAK9t/exec"; // paste your script URL here
+    const radius = 200; // meters allowed radius
+    const backendUrl = "https://script.google.com/macros/s/AKfycbx1b9_hO_TCzV8q5fuEEruyZbPKIsIRgGryrAg9DS9z99Qslb5CeEOBtqrpa5580w58/exec"; 
 
     function getDistance(lat1, lon1, lat2, lon2) {
       function toRad(x) { return x * Math.PI / 180; }
-      const R = 6371000; // meters
+      const R = 6371000;
       const dLat = toRad(lat2 - lat1);
       const dLon = toRad(lon2 - lon1);
       const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -56,7 +116,8 @@
       const dist = getDistance(lat, lng, allowedLat, allowedLng);
 
       if (dist <= radius) {
-        document.getElementById("status").innerText = "You are inside the allowed location.";
+        document.getElementById("status").innerText = "You are inside the classroom zone.";
+        document.getElementById("status").classList.add("success");
         document.getElementById("checkinForm").style.display = "block";
 
         document.getElementById("checkinForm").onsubmit = async function(e) {
@@ -72,18 +133,18 @@
             const result = await response.json();
 
             if (result.status === "success") {
-              alert("Check-in successful!");
+              alert("✅ Check-in successful!");
               document.getElementById("checkinForm").reset();
             } else {
-              alert("Error: " + result.message);
+              alert("❌ Error: " + result.message);
             }
           } catch (error) {
-            alert("Submission failed.");
+            alert("❌ Submission failed.");
           }
         };
 
       } else {
-        document.getElementById("status").innerText = "You are outside the allowed location.";
+        document.getElementById("status").innerText = "You are outside the classroom zone.";
       }
     }, () => {
       document.getElementById("status").innerText = "Unable to get location.";
@@ -91,5 +152,3 @@
   </script>
 </body>
 </html>
-
-
