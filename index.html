@@ -1,167 +1,93 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="UTF-8">
   <title>Location Check-in</title>
   <style>
-    body { font-family: system-ui, Arial, sans-serif; margin: 16px; }
-    .hidden { display: none; }
-    label { display: block; margin: 8px 0 4px; }
-    input, select, button { padding: 8px; width: 100%; max-width: 420px; }
-    .status { margin: 12px 0; color: #333; }
-    .error { color: #b00020; }
-    .ok { color: #0a7a28; }
+    body { font-family: Arial, sans-serif; margin: 40px; }
+    #checkinForm { margin-top: 20px; }
+    label { display: block; margin-top: 10px; }
+    input, select, button { padding: 8px; margin-top: 5px; width: 200px; }
+    button { background: #4CAF50; color: white; border: none; cursor: pointer; }
+    button:hover { background: #45a049; }
   </style>
 </head>
 <body>
-  <h1>Location Check-in</h1>
+  <h2>Check-In</h2>
+  <div id="status">Checking location...</div>
 
-  <div id="status" class="status">Requesting location…</div>
+  <form id="checkinForm" style="display:none;">
+    <label>Name:</label>
+    <input type="text" id="name" required>
 
-  <div id="outside" class="hidden error">You are outside the allowed location.</div>
-
-  <form id="checkinForm" class="hidden" autocomplete="on">
-    <label for="name">Name</label>
-    <input id="name" name="name" type="text" required />
-
-    <label for="dept">Department</label>
-    <select id="dept" name="department" required>
-      <option value="">Select…</option>
-      <option>HR</option>
-      <option>Finance</option>
-      <option>IT</option>
-      <option>Sales</option>
+    <label>Department:</label>
+    <select id="department">
+      <option value="HR">HR</option>
+      <option value="Finance">Finance</option>
+      <option value="IT">IT</option>
+      <option value="Sales">Sales</option>
     </select>
 
-    <button id="submitBtn" type="submit">Check in</button>
+    <button type="submit">Submit</button>
   </form>
 
   <script>
-    // Configuration: replace these with real values
-    const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbwNI9Xz053uX-OuisB0IrFzS_irUwIvMCjtv1r3NruNOIHcX2xWETrQu_ssCfyJyyDM/exec'; // Apps Script Web App /exec URL
-    const TARGET_LAT = 33.21983466656297;    // Allowed center latitude
-    const TARGET_LNG = 44.380812176540296;    // Allowed center longitude
-    const RADIUS_METERS = 500;     // Allowed radius in meters
+    // 🔹 Change these values
+    const allowedLat = 33.3152;  // Example: Baghdad
+    const allowedLng = 44.3661;
+    const radius = 500; // meters allowed radius
+    const backendUrl = "https://script.google.com/macros/s/AKfycbwb5bzIXEjJ3bNFUebGgqXGSnxMvzniYlFQBVtsgROJF8jkI0hSJoraZn2iBHSbQw2D/exec"; // paste your script URL here
 
-    const statusEl = document.getElementById('status');
-    const formEl = document.getElementById('checkinForm');
-    const outsideEl = document.getElementById('outside');
-
-    // Haversine distance in meters
-    function distanceMeters(lat1, lon1, lat2, lon2) {
-      const R = 6371e3; // meters
-      const toRad = (d) => d * Math.PI / 180;
-      const φ1 = toRad(lat1);
-      const φ2 = toRad(lat2);
-      const Δφ = toRad(lat2 - lat1);
-      const Δλ = toRad(lon2 - lon1);
-      const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                Math.cos(φ1) * Math.cos(φ2) *
-                Math.sin(Δλ/2) * Math.sin(Δλ/2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    function getDistance(lat1, lon1, lat2, lon2) {
+      function toRad(x) { return x * Math.PI / 180; }
+      const R = 6371000; // meters
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
       return R * c;
     }
 
-    let currentCoords = null;
+    navigator.geolocation.getCurrentPosition(pos => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      const dist = getDistance(lat, lng, allowedLat, allowedLng);
 
-    function show(el) { el.classList.remove('hidden'); }
-    function hide(el) { el.classList.add('hidden'); }
+      if (dist <= radius) {
+        document.getElementById("status").innerText = "You are inside the allowed location.";
+        document.getElementById("checkinForm").style.display = "block";
 
-    function handlePosition(pos) {
-      const { latitude, longitude, accuracy } = pos.coords;
-      currentCoords = { latitude, longitude, accuracy };
+        document.getElementById("checkinForm").onsubmit = async function(e) {
+          e.preventDefault();
+          const name = document.getElementById("name").value;
+          const dept = document.getElementById("department").value;
 
-      const d = distanceMeters(latitude, longitude, TARGET_LAT, TARGET_LNG);
-      if (d <= RADIUS_METERS) {
-        statusEl.textContent = `Location verified (≈${Math.round(d)} m from center).`;
-        show(formEl);
-        hide(outsideEl);
+          try {
+            const response = await fetch(backendUrl, {
+              method: "POST",
+              body: JSON.stringify({name, department: dept, latitude: lat, longitude: lng})
+            });
+            const result = await response.json();
+
+            if (result.status === "success") {
+              alert("Check-in successful!");
+              document.getElementById("checkinForm").reset();
+            } else {
+              alert("Error: " + result.message);
+            }
+          } catch (error) {
+            alert("Submission failed.");
+          }
+        };
+
       } else {
-        statusEl.textContent = `Distance ≈${Math.round(d)} m exceeds allowed ${RADIUS_METERS} m.`;
-        hide(formEl);
-        show(outsideEl);
+        document.getElementById("status").innerText = "You are outside the allowed location.";
       }
-    }
-
-    function handleGeoError(err) {
-      statusEl.textContent = `Location error: ${err.message}`;
-      hide(formEl);
-      show(outsideEl);
-    }
-
-    // Request location on load
-    (function init() {
-      if (!('geolocation' in navigator)) {
-        statusEl.textContent = 'Geolocation not supported in this browser.';
-        show(outsideEl);
-        return;
-      }
-      navigator.geolocation.getCurrentPosition(handlePosition, handleGeoError, {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0
-      });
-    })();
-
-    // Submit handler: POST FormData (simple request, no preflight)
-    formEl.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const name = document.getElementById('name').value.trim();
-      const department = document.getElementById('dept').value;
-
-      if (!currentCoords) {
-        statusEl.textContent = 'No location available. Please reload and allow location.';
-        return;
-      }
-
-      // Double-check distance at submit time
-      const d = distanceMeters(currentCoords.latitude, currentCoords.longitude, TARGET_LAT, TARGET_LNG);
-      if (d > RADIUS_METERS) {
-        statusEl.textContent = `Distance ≈${Math.round(d)} m; outside allowed area.`;
-        hide(formEl);
-        show(outsideEl);
-        return;
-      }
-
-      try {
-        const fd = new FormData();
-        fd.append('name', name);
-        fd.append('department', department);
-        fd.append('latitude', String(currentCoords.latitude));
-        fd.append('longitude', String(currentCoords.longitude));
-
-        const resp = await fetch(BACKEND_URL, {
-          method: 'POST',
-          body: fd,
-          redirect: 'follow' // follow redirect to script.googleusercontent.com
-        });
-
-        // Attempt to parse JSON; handle non-JSON gracefully
-        let json = null;
-        const ct = resp.headers.get('content-type') || '';
-        if (ct.includes('application/json')) {
-          json = await resp.json();
-        } else {
-          const text = await resp.text();
-          try { json = JSON.parse(text); } catch (_) { json = { ok: resp.ok }; }
-        }
-
-        if (json && json.ok) {
-          statusEl.textContent = 'Check-in recorded successfully.';
-          statusEl.classList.remove('error');
-          statusEl.classList.add('ok');
-          formEl.reset();
-        } else {
-          const msg = json && json.error ? json.error : `HTTP ${resp.status}`;
-          throw new Error(msg);
-        }
-      } catch (err) {
-        statusEl.textContent = `Submit failed: ${err.message}`;
-        statusEl.classList.add('error');
-      }
+    }, () => {
+      document.getElementById("status").innerText = "Unable to get location.";
     });
   </script>
 </body>
 </html>
-
