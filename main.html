@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Location Check-in</title>
+    <style>
+      body {
+        font-family: system-ui, Arial, sans-serif;
+        margin: 16px;
+      }
+      .hidden {
+        display: none;
+      }
+      label {
+        display: block;
+        margin: 8px 0 4px;
+      }
+      input,
+      select,
+      button {
+        padding: 8px;
+        width: 100%;
+        max-width: 420px;
+      }
+      .status {
+        margin: 12px 0;
+        color: #333;
+      }
+      .error {
+        color: #b00020;
+      }
+      .ok {
+        color: #0a7a28;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Location Check-in</h1>
+
+    <div id="status" class="status">Requesting location…</div>
+
+    <div id="outside" class="hidden error">
+      You are outside the allowed location.
+    </div>
+
+    <form id="checkinForm" class="hidden" autocomplete="on">
+      <label for="name">Name</label>
+      <input id="name" name="name" type="text" required />
+
+      <label for="dept">Department</label>
+      <select id="dept" name="department" required>
+        <option value="">Select…</option>
+        <option>HR</option>
+        <option>Finance</option>
+        <option>IT</option>
+        <option>Sales</option>
+      </select>
+
+      <button id="submitBtn" type="submit">Check in</button>
+    </form>
+
+    <script>
+      // Configuration
+      const BACKEND_URL =
+        "https://script.google.com/macros/s/AKfycbxRRGE77tP9YUowCDwYwyDZGBFmo5xtYnLjojaIUuYYOrRfuxkxj48uijyttS_Irmwo/exec"; // Apps Script Web App URL
+      const TARGET_LAT = 33.21983466656297; // Replace with allowed center latitude
+      const TARGET_LNG = 44.380812176540296; // Replace with allowed center longitude
+      const RADIUS_METERS = 500; // Allowed radius in meters
+
+      const statusEl = document.getElementById("status");
+      const formEl = document.getElementById("checkinForm");
+      const outsideEl = document.getElementById("outside");
+
+      // Haversine distance in meters
+      function distanceMeters(lat1, lon1, lat2, lon2) {
+        const R = 6371e3; // meters
+        const toRad = (d) => (d * Math.PI) / 180;
+        const φ1 = toRad(lat1);
+        const φ2 = toRad(lat2);
+        const Δφ = toRad(lat2 - lat1);
+        const Δλ = toRad(lon2 - lon1);
+        const a =
+          Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+          Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+      }
+
+      let currentCoords = null;
+
+      function show(el) {
+        el.classList.remove("hidden");
+      }
+      function hide(el) {
+        el.classList.add("hidden");
+      }
+
+      function handlePosition(pos) {
+        const { latitude, longitude, accuracy } = pos.coords;
+        currentCoords = { latitude, longitude, accuracy };
+
+        const d = distanceMeters(latitude, longitude, TARGET_LAT, TARGET_LNG);
+        if (d <= RADIUS_METERS) {
+          statusEl.textContent = `Location verified (≈${Math.round(
+            d
+          )} m from center).`;
+          show(formEl);
+          hide(outsideEl);
+        } else {
+          statusEl.textContent = `Distance ≈${Math.round(
+            d
+          )} m exceeds allowed ${RADIUS_METERS} m.`;
+          hide(formEl);
+          show(outsideEl);
+        }
+      }
+
+      function handleGeoError(err) {
+        statusEl.textContent = `Location error: ${err.message}`;
+        hide(formEl);
+        show(outsideEl);
+      }
+
+      // Request location on load
+      (function init() {
+        if (!("geolocation" in navigator)) {
+          statusEl.textContent = "Geolocation not supported in this browser.";
+          show(outsideEl);
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(
+          handlePosition,
+          handleGeoError,
+          {
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 0,
+          }
+        );
+      })();
+
+      // Submit handler
+      formEl.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const name = document.getElementById("name").value.trim();
+        const department = document.getElementById("dept").value;
+
+        if (!currentCoords) {
+          statusEl.textContent =
+            "No location available. Please reload and allow location.";
+          return;
+        }
+
+        // Double-check distance at submit time
+        const d = distanceMeters(
+          currentCoords.latitude,
+          currentCoords.longitude,
+          TARGET_LAT,
+          TARGET_LNG
+        );
+        if (d > RADIUS_METERS) {
+          statusEl.textContent = `Distance ≈${Math.round(
+            d
+          )} m; outside allowed area.`;
+          hide(formEl);
+          show(outsideEl);
+          return;
+        }
+
+        const payload = {
+          name,
+          department,
+          latitude: currentCoords.latitude,
+          longitude: currentCoords.longitude,
+        };
+
+        try {
+          const resp = await fetch(BACKEND_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const json = await resp.json().catch(() => ({}));
+          if (json && json.ok) {
+            statusEl.textContent = "Check-in recorded successfully.";
+            statusEl.classList.add("ok");
+            formEl.reset();
+          } else {
+            throw new Error(
+              json && json.error ? json.error : `HTTP ${resp.status}`
+            );
+          }
+        } catch (err) {
+          statusEl.textContent = `Submit failed: ${err.message}`;
+          statusEl.classList.add("error");
+        }
+      });
+    </script>
+  </body>
+</html>
