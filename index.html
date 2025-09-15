@@ -106,34 +106,19 @@
     const allowedLng = 44.380812176540296;
     const radius = 200; // meters allowed radius
     const backendUrl = "https://script.google.com/macros/s/AKfycbx1b9_hO_TCzV8q5fuEEruyZbPKIsIRgGryrAg9DS9z99Qslb5CeEOBtqrpa5580w58/exec"; 
-const form = document.getElementById("checkinForm");
-    const message = document.getElementById("message");
-
+        
     // Check if already submitted today
-    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD format
     const lastSubmit = localStorage.getItem("lastCheckin");
-
+    
     if (lastSubmit === today) {
-      form.style.display = "none";
-      message.innerText = "✅ You already checked in today.";
+      document.getElementById("status").innerText = "✅ You already checked in today.";
+      document.getElementById("status").classList.add("success");
+      return; // Stop further execution
     }
 
-    form.addEventListener("submit", function(e) {
-      e.preventDefault();
 
-      const department = document.getElementById("department").value;
-      if (!department) {
-        alert("Please select a department.");
-        return;
-      }
-
-      // Save submission date
-      localStorage.setItem("lastCheckin", today);
-
-      form.style.display = "none";
-      message.innerText = "✅ Check-in successful. See you in class!";
-
-      
+    
     function getDistance(lat1, lon1, lat2, lon2) {
       function toRad(x) { return x * Math.PI / 180; }
       const R = 6371000;
@@ -168,12 +153,20 @@ const form = document.getElementById("checkinForm");
             });
             const result = await response.json();
 
-            if (result.status === "success") {
+          if (result.status === "success") {
+              // Save submission date to prevent multiple submissions
+              localStorage.setItem("lastCheckin", today);
+              
+              // Update UI
+              document.getElementById("checkinForm").style.display = "none";
+              document.getElementById("status").innerText = "✅ Check-in successful! See you in class!";
+              document.getElementById("status").classList.add("success");
+              
               alert("✅ Check-in successful!");
-              document.getElementById("checkinForm").reset();
             } else {
               alert("❌ Error: " + result.message);
             }
+
           } catch (error) {
             alert("❌ Submission failed.");
           }
@@ -188,5 +181,3 @@ const form = document.getElementById("checkinForm");
   </script>
 </body>
 </html>
-
-
