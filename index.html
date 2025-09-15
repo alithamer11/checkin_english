@@ -106,7 +106,34 @@
     const allowedLng = 44.380812176540296;
     const radius = 200; // meters allowed radius
     const backendUrl = "https://script.google.com/macros/s/AKfycbx1b9_hO_TCzV8q5fuEEruyZbPKIsIRgGryrAg9DS9z99Qslb5CeEOBtqrpa5580w58/exec"; 
+const form = document.getElementById("checkinForm");
+    const message = document.getElementById("message");
 
+    // Check if already submitted today
+    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+    const lastSubmit = localStorage.getItem("lastCheckin");
+
+    if (lastSubmit === today) {
+      form.style.display = "none";
+      message.innerText = "✅ You already checked in today.";
+    }
+
+    form.addEventListener("submit", function(e) {
+      e.preventDefault();
+
+      const department = document.getElementById("department").value;
+      if (!department) {
+        alert("Please select a department.");
+        return;
+      }
+
+      // Save submission date
+      localStorage.setItem("lastCheckin", today);
+
+      form.style.display = "none";
+      message.innerText = "✅ Check-in successful. See you in class!";
+
+      
     function getDistance(lat1, lon1, lat2, lon2) {
       function toRad(x) { return x * Math.PI / 180; }
       const R = 6371000;
@@ -161,4 +188,5 @@
   </script>
 </body>
 </html>
+
 
